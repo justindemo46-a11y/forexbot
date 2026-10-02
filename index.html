@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forex Bot</title>
+<style>
+:root{--bg:#fff;--fg:#111;--mut:#666;--card:#f3f4f6;--acc:#0b5fff}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1115;--fg:#eee;--mut:#9aa;--card:#1a1d24;--acc:#5b8cff}}
+body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif;max-width:640px;margin-inline:auto}
+input,button{font:inherit;width:100%;box-sizing:border-box;padding:12px;margin:6px 0;border-radius:10px;border:1px solid var(--mut);background:var(--card);color:var(--fg)}
+button{background:var(--acc);color:#fff;border:0}button.warn{background:#c0392b}
+pre{background:var(--card);padding:12px;border-radius:10px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+small{color:var(--mut)}
+</style></head><body>
+<h2>Forex Bot</h2>
+<small>Signal alerts only: this bot never places orders. Not financial advice.</small>
+<input id="key" type="password" placeholder="BOT_SECRET" autocomplete="off">
+<button onclick="go('status')">Status</button>
+<button onclick="go('signal')">Current signal</button>
+<button onclick="go('backtest')">Backtest (takes ~20-40s)</button>
+<button onclick="go('testalert')">Send test Telegram alert</button>
+<button onclick="go('chatid')">Find my Telegram chat ID</button>
+<button onclick="go('run')">Check &amp; alert now</button>
+<pre id="out">Enter your BOT_SECRET, then tap a button.</pre>
+<script>
+const k=document.getElementById('key');k.value=localStorage.getItem('k')||'';
+async function go(a){
+  localStorage.setItem('k',k.value);out.textContent='Loading...';
+  try{const r=await fetch('/api/bot?action='+a,{headers:{Authorization:'Bearer '+k.value}});
+  out.textContent=JSON.stringify(await r.json(),null,2)}catch(e){out.textContent=String(e)}
+}
+</script></body></html>
