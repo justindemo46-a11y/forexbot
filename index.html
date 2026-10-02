@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>forexbot</title>
+<style>
+:root{--bg:#e9eef2;--ink:#14212b;--mut:#5b6b78;--card:#fff;--acc:#0f766e;--up:#157347;--dn:#b42318;--line:#cdd7de}
+@media(prefers-color-scheme:dark){:root{--bg:#10191f;--ink:#e6edf1;--mut:#92a3af;--card:#18242c;--acc:#2dd4bf;--up:#4ade80;--dn:#f87171;--line:#2b3a45}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Georgia,"Times New Roman",serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+main{max-width:560px;margin:0 auto;padding:16px}
+h1{font-size:28px;margin:8px 0 2px}h2{font-size:18px;margin:0 0 8px}
+p.s{color:var(--mut);margin:0 0 16px;font-size:14px}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+label{display:block;font:13px system-ui,sans-serif;color:var(--mut);margin:8px 0 2px}
+input{width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:15px ui-monospace,monospace}
+button{font:600 15px system-ui,sans-serif;padding:10px 14px;margin:10px 8px 0 0;border:0;border-radius:6px;background:var(--acc);color:#fff;cursor:pointer}
+button.g{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.st{font:14px system-ui,sans-serif;margin-top:8px;min-height:20px}
+.ok{color:var(--up)}.er{color:var(--dn)}
+.sig{border-left:5px solid var(--up);padding:8px 12px;margin-top:10px;background:var(--bg);border-radius:0 6px 6px 0;white-space:pre-line;font:14px ui-monospace,monospace}
+.sig.s{border-color:var(--dn)}
+.no{font:14px system-ui,sans-serif;color:var(--mut);margin-top:6px}
+.row{display:flex;align-items:center;gap:8px;margin-top:10px;font:14px system-ui,sans-serif}
+.row input{width:auto}
+</style></head><body><main>
+<h1>forexbot</h1>
+<p class="s">Signals for EUR/USD, GBP/USD and USD/JPY. You place the trades yourself.</p>
+
+<section><h2>Scanner</h2>
+<button id="scan">Scan now</button><button class="g" id="auto">Auto-scan: off</button>
+<div class="row"><input type="checkbox" id="force"><label for="force" style="margin:0">Scan outside London/NY hours</label></div>
+<div class="st" id="scanSt"></div><div id="out"></div></section>
+
+<section><h2>Twelve Data</h2>
+<label for="td">API key (free plan)</label><input id="td" autocomplete="off">
+<button id="save">Save keys</button><div class="st" id="saveSt"></div></section>
+
+<section><h2>Telegram</h2>
+<label for="tgT">Bot token</label><input id="tgT" autocomplete="off">
+<label for="tgC">Chat ID</label><input id="tgC" autocomplete="off">
+<button class="g" id="tgFind">Find my chat ID</button><button id="tgTest">Send test</button>
+<div class="st" id="tgSt"></div>
+<p class="no">Open your bot in Telegram and send it any message first, then tap Find my chat ID.</p></section>
+
+<section><h2>OANDA practice</h2>
+<label for="oT">API token</label><input id="oT" autocomplete="off">
+<label for="oA">Account ID (like 101-001-1234567-001)</label><input id="oA" autocomplete="off">
+<button id="oTest">Connect</button><div class="st" id="oSt"></div>
+<p class="no">Needs an OANDA fxTrade Practice account. A MetaTrader 5 demo login will not work here.</p></section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const F={td:"td",tgToken:"tgT",tgChat:"tgC",oandaToken:"oT",oandaAccount:"oA"};
+let store={};
+try{store=JSON.parse(localStorage.getItem("fb")||"{}")}catch(e){}
+for(const k in F)$(F[k]).value=store[k]||"";
+const vals=()=>{const o={};for(const k in F)o[k]=$(F[k]).value.trim();return o};
+function save(){try{localStorage.setItem("fb",JSON.stringify(vals()));return true}catch(e){return false}}
+function say(id,t,ok){const e=$(id);e.textContent=t;e.className="st "+(ok?"ok":"er")}
+async function call(action,extra){
+  const r=await fetch("/api/bot",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,...vals(),...extra})});
+  const j=await r.json();if(!r.ok)throw new Error(j.error||"Request failed");return j}
+$("save").onclick=()=>say("saveSt",save()?"Saved on this device.":"Could not save in this browser.",save());
+$("tgFind").onclick=async()=>{try{say("tgSt","Looking...",1);const j=await call("tg_chat");$("tgC").value=j.chat;save();say("tgSt","Chat ID found and saved.",1)}catch(e){say("tgSt",e.message)}};
+$("tgTest").onclick=async()=>{try{save();await call("tg_test");say("tgSt","Test message sent. Check Telegram.",1)}catch(e){say("tgSt",e.message)}};
+$("oTest").onclick=async()=>{try{save();say("oSt","Connecting...",1);const j=await call("oanda");say("oSt",`Connected. Balance ${j.balance} ${j.currency}, ${j.open} open trades.`,1)}catch(e){say("oSt",e.message)}};
+async function scan(){
+  try{save();say("scanSt","Scanning...",1);
+    const j=await call("scan",{force:$("force").checked});
+    $("out").innerHTML="";
+    if(!j.session){say("scanSt",j.note,1);return}
+    say("scanSt","Done "+new Date().toLocaleTimeString(),1);
+    for(const t of j.results){
+      const d=document.createElement("div");
+      if(t.trade){d.className="sig"+(t.dir==="SHORT"?" s":"");
+        d.textContent=`${t.sym} ${t.dir}  ${t.score}/10\nEntry ${t.entry}\nSL ${t.sl}\nTP1 ${t.tp1}\nTP2 ${t.tp2}\nTP3 ${t.tp3}`}
+      else{d.className="no";d.textContent=`${t.sym}: No trade. ${t.why}`}
+      $("out").appendChild(d)}
+  }catch(e){say("scanSt",e.message)}}
+$("scan").onclick=scan;
+let timer=null;
+$("auto").onclick=()=>{if(timer){clearInterval(timer);timer=null;$("auto").textContent="Auto-scan: off"}
+  else{scan();timer=setInterval(scan,9e5);$("auto").textContent="Auto-scan: every 15 min"}};
+</script></body></html>
